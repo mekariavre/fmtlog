@@ -1,0 +1,21 @@
+name: Test fmtlog
+
+on:
+  push:
+    branches:
+      - "**"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y jq
+      - name: Make fmtlog executable
+        run: chmod +x ./fmtlog
+      - name: Make testrunner.sh executable
+        run: chmod +x ./testrunner.sh
+      - name: Run test
+        run: make test
