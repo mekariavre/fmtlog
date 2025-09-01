@@ -1,0 +1,71 @@
+#!/usr/bin/env ruby
+
+# usage: go run . server | scripts/fmtlog
+
+require 'json'
+require 'optparse'
+
+def transform(data)
+  data['stack_trace'] = data['stack_trace'].map do |trace|
+    trace.split(" ", 2).last
+  end unless data['stack_trace'].nil?
+  
+  data
+end
+
+def fmtjq(data)
+  output = JSON.generate(data).strip
+  output = `echo '#{output}' | jq --color-output . 2>&1` unless output.empty?
+  raise "Failed to parse JSON: #{output}" unless $?.success? || output.empty?
+  
+  output
+end
+  
+def transform_pretty_print(log)
+  logdata = begin
+    JSON.parse(log.strip)
+  end
+
+  logdata = transform(logdata)
+
+  if system('which jq &>/dev/null')
+    log = fmtjq(logdata)
+  else
+    log = JSON.pretty_generate(logdata)
+  end
+
+  log
+end
+
+def main
+  # set up a signal trap for Ctrl+C
+  interrupted = false
+  trap("INT") { interrupted = true }
+
+  # read and process lines from stdin
+  buffer = ''
+  isfailstreak = false
+  while (line = STDIN.gets)
+    buffer << line
+    next unless line.end_with?("\n")
+
+    begin
+      out = transform_pretty_print(buffer)
+      isfailstreak = false unless out.empty?
+    rescue StandardError => e
+      warn "\e[90mFailed to transform: #{e.message.strip.downcase}\e[0m" unless isfailstreak
+      isfailstreak = true
+      out = buffer
+    end
+
+    unless out.strip.empty?
+      puts out.strip
+      $stdout.flush
+    end
+
+    buffer.clear
+    break if interrupted
+  end
+end
+
+main if __FILE__ == $0
