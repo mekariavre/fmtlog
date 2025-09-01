@@ -15,9 +15,9 @@ end
 
 def fmtjq(data)
   output = JSON.generate(data).strip
-  output = `echo '#{output}' | jq --color-output . 2>&1` unless output.empty?
+  jq_path = `which jq`.strip
+  output = `echo '#{output}' | #{jq_path} --color-output . 2>&1` unless output.empty?
   raise "Failed to parse JSON: #{output}" unless $?.success? || output.empty?
-  
   output
 end
   
@@ -28,7 +28,7 @@ def transform_pretty_print(log)
 
   logdata = transform(logdata)
 
-  if system('which jq &>/dev/null')
+  if system('command -v jq > /dev/null 2>&1')
     log = fmtjq(logdata)
   else
     log = JSON.pretty_generate(logdata)
